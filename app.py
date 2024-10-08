@@ -26,10 +26,21 @@ def convert_pdf_to_txt(pdf_path):
 def check_spelling(text):
     words = text.split()
     corrections = {}
+    
     for word in words:
-        if not spell.unknown([word]):
+        # Ignore words with numbers, symbols, or all uppercase (likely acronyms)
+        if word.isnumeric() or word in "*>:ASG" or word.isupper():
+            continue
+
+        # Check if the word is misspelled
+        misspelled = spell.unknown([word])
+        
+        if misspelled:
             suggestions = spell.candidates(word)
-            # corrections[word] = list(suggestions)[:3]  # Get top 3 suggestions
+            # Only add suggestions if there are valid alternatives
+            if suggestions and word not in suggestions:
+                corrections[word] = list(suggestions)[:3]  # Get top 3 suggestions
+    
     return corrections
 
 def create_pdf(texts):
