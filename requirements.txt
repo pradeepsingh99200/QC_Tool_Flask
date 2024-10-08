@@ -1,17 +1,9 @@
-absl-py==2.1.0
-gunicorn==20.1.0
 Flask==2.2.3
-pdfplumber==0.8.2
+pdfplumber==0.11.4
 pyspellchecker==0.5.5
 fpdf==1.7.2
-aspose-pdf==24.9.0
-fpdf==1.7.2
-pdf2image==1.17.0
-pdfminer.six==20231228
-pdfplumber==0.11.4
-pdfrw==0.4
-PyMuPDF==1.24.11
-PyPDF2==3.0.1
-pypdfium2==4.30.0
+gunicorn==20.1.0
+
+
 
 
