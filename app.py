@@ -4,6 +4,8 @@ import pdfplumber
 from werkzeug.utils import secure_filename
 from spellchecker import SpellChecker
 from fpdf import FPDF
+from pdf2image import convert_from_path
+import pytesseract
 
 app = Flask(__name__)
 
@@ -19,28 +21,27 @@ current_page = 0
 spell = SpellChecker()
 
 def convert_pdf_to_txt(pdf_path):
+    extracted_text = []
     with pdfplumber.open(pdf_path) as pdf:
-        text_by_page = [page.extract_text() for page in pdf.pages]
-    return text_by_page
+        for page in pdf.pages:
+            text = page.extract_text()
+            if text:
+                extracted_text.append(text)
+            else:
+                # If text extraction fails, use OCR
+                images = convert_from_path(pdf_path, first_page=pdf.pages.index(page)+1, last_page=pdf.pages.index(page)+1)
+                for img in images:
+                    text = pytesseract.image_to_string(img)
+                    extracted_text.append(text)
+    return extracted_text
 
 def check_spelling(text):
     words = text.split()
     corrections = {}
-    
     for word in words:
-        # Ignore words with numbers, symbols, or all uppercase (likely acronyms)
-        if word.isnumeric() or word in "*>:ASG" or word.isupper():
-            continue
-
-        # Check if the word is misspelled
-        misspelled = spell.unknown([word])
-        
-        if misspelled:
+        if not spell.unknown([word]):
             suggestions = spell.candidates(word)
-            # Only add suggestions if there are valid alternatives
-            if suggestions and word not in suggestions:
-                corrections[word] = list(suggestions)[:3]  # Get top 3 suggestions
-    
+            corrections[word] = list(suggestions)[:3]  # Get top 3 suggestions
     return corrections
 
 def create_pdf(texts):
