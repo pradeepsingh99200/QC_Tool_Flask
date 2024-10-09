@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, jsonify, send_file
-import os
+import os , re
 import pdfplumber
 from werkzeug.utils import secure_filename
 from spellchecker import SpellChecker
@@ -38,10 +38,18 @@ def convert_pdf_to_txt(pdf_path):
 def check_spelling(text):
     words = text.split()
     corrections = {}
+
     for word in words:
-        if not spell.unknown([word]):
+        # Ignore words that are numbers, symbols, or already uppercase (proper nouns, acronyms)
+        if word.isdigit() or re.match(r'^\W+$', word) or word.isupper():
+            continue
+
+        # Check if the word is misspelled
+        misspelled = spell.unknown([word])
+        if misspelled:
             suggestions = spell.candidates(word)
-            corrections[word] = list(suggestions)[:3]  # Get top 3 suggestions
+            if suggestions:
+                corrections[word] = list(suggestions)[:3]  # Get top 3 suggestions
     return corrections
 
 def create_pdf(texts):
@@ -72,7 +80,7 @@ def upload_file():
     if file and file.filename.endswith('.pdf'):
         filename = secure_filename(file.filename)
         pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(pdf_path)
+        file.save(pdf_path) 
 
         # Convert PDF to text
         extracted_text = convert_pdf_to_txt(pdf_path)
@@ -99,7 +107,7 @@ def correct_text():
     text = data['text']
     output_pdf_path = create_pdf([text])  # Create new PDF with corrected text
     return jsonify({'success': True, 'output_pdf_path': output_pdf_path})
-
+    
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)  # Create upload directory if it doesn't exist

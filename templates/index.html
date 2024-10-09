@@ -77,25 +77,31 @@
     let pdfUrl = '';
 
     form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(form);
-        const response = await fetch('/upload', {
-            method: 'POST',
-            body: formData
-        });
-        const result = await response.json();
-        if (result.success) {
-            totalPages = result.total_pages;
-            currentPage = 0;
-            pdfUrl = `/pdf/${result.filename}`; // Set PDF URL from the response
-            prevBtn.style.display = 'inline'; // Show navigation buttons
-            nextBtn.style.display = 'inline';
-            correctBtn.style.display = 'inline'; // Show correct button
-            loadPage(currentPage);
-        } else {
-            alert(result.message); // Show error message
-        }
+    e.preventDefault();
+
+    // Reset the viewer and other states for a new PDF
+    pdfDoc = null;  // Clear current PDF document
+    currentPage = 0;  // Reset to first page
+    extractedTextArea.value = '';  // Clear extracted text
+    spellingErrorsDiv.innerHTML = '';  // Clear spelling errors
+    pdfCanvas.getContext('2d').clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);  // Clear the canvas
+
+    const formData = new FormData(form);
+    const response = await fetch('/upload', {
+        method: 'POST',
+        body: formData
     });
+
+    const result = await response.json();
+    if (result.success) {
+        totalPages = result.total_pages;
+        pdfUrl = `/pdf/${result.filename}`;  // Set new PDF URL
+        loadPage(currentPage);  // Load first page of the new PDF
+    } else {
+        alert(result.message);  // Show error message
+    }
+});
+
 
     prevBtn.addEventListener('click', () => {
         if (currentPage > 0) {
