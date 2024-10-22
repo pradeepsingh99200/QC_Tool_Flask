@@ -29,7 +29,7 @@
 <body>
 
 <div class="container-fluid">
-    <h1 class="mt-4 mb-4 text-center">Upload PDF for Quality Check</h1>
+    <h1 class="mt-4 mb-4 text-center">Quality Check Tool</h1>
     <form id="upload-form" class="mb-4">
         <div class="input-group">
             <input type="file" name="file" accept="application/pdf" class="form-control" required>
@@ -40,9 +40,9 @@
     </form>
 
     <div id="navigation" class="text-center">
-        <button id="prev-btn" class="btn btn-secondary">Previous</button>
+        <button id="prev-btn" class="btn btn-secondary">Previous</button> 
         <button id="next-btn" class="btn btn-secondary">Next</button>
-        <button id="correct-btn" class="btn btn-success">Correct Text</button>
+        <!-- <button id="correct-btn" class="btn btn-success">Correct Text</button> -->
     </div>
 
     <div class="row">
@@ -118,20 +118,37 @@
     });
 
     correctBtn.addEventListener('click', async () => {
-        const correctedText = extractedTextArea.value;
-        const response = await fetch('/correct', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ text: correctedText })
-        });
-        const result = await response.json();
-        if (result.success) {
-            alert("Corrected PDF created successfully!");
-            window.open(result.output_pdf_path); // Open the new PDF
-        }
+    const correctedText = extractedTextArea.value;
+    const response = await fetch('/correct', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text: correctedText })
     });
+    const result = await response.json();
+    if (result.success) {
+        alert("Corrected PDF created successfully!");
+
+        // Show download links
+        const downloadLinksDiv = document.getElementById('download-links');
+        downloadLinksDiv.innerHTML = ''; // Clear previous links
+
+        // Link to the corrected PDF
+        const correctedPdfLink = document.createElement('a');
+        correctedPdfLink.href = result.output_pdf_path; 
+        correctedPdfLink.innerText = 'Download Corrected PDF';
+        downloadLinksDiv.appendChild(correctedPdfLink);
+        downloadLinksDiv.appendChild(document.createElement('br')); // Add a line break
+
+        // Link to the original PDF
+        const originalPdfLink = document.createElement('a');
+        originalPdfLink.href = result.original_pdf_path; 
+        originalPdfLink.innerText = 'Download Original PDF';
+        downloadLinksDiv.appendChild(originalPdfLink);
+    }
+});
+
 
     async function loadPage(pageNumber) {
         const response = await fetch(`/page/${pageNumber}`);

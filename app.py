@@ -6,6 +6,8 @@ from spellchecker import SpellChecker
 from fpdf import FPDF
 from pdf2image import convert_from_path
 import pytesseract
+import language_tool_python
+
 
 app = Flask(__name__)
 
@@ -19,6 +21,7 @@ extracted_text = []
 current_page = 0
 
 spell = SpellChecker()
+grammar = language_tool_python.LanguageTool('en-US')
 
 def convert_pdf_to_txt(pdf_path):
     extracted_text = []
@@ -62,7 +65,7 @@ def create_pdf(texts):
         pdf.multi_cell(0, 10, text)
     
     output_path = os.path.join(app.config['UPLOAD_FOLDER'], 'corrected_text.pdf')
-    pdf.output(output_path)
+    # pdf.output(output_path)
     return output_path
 
 @app.route('/')
@@ -89,6 +92,7 @@ def upload_file():
         # Return success response with total pages and PDF file name
         return jsonify({'success': True, 'total_pages': len(extracted_text), 'filename': filename})
 
+
 @app.route('/page/<int:page_number>', methods=['GET'])
 def get_page(page_number):
     global current_page
@@ -105,8 +109,13 @@ def serve_pdf(filename):
 def correct_text():
     data = request.json
     text = data['text']
-    output_pdf_path = create_pdf([text])  # Create new PDF with corrected text
-    return jsonify({'success': True, 'output_pdf_path': output_pdf_path})
+    
+    # Create new PDF with corrected text
+    output_pdf_path = create_pdf([text])  # Create new PDF
+    original_pdf_path = pdf_path  # Keep track of the original PDF path
+    
+    return jsonify({'success': True, 'output_pdf_path': output_pdf_path, 'original_pdf_path': original_pdf_path})
+
     
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
