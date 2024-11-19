@@ -1,5 +1,5 @@
-from flask import Flask, request, render_template, jsonify, send_file
-import os , re
+from flask import Flask, request, render_template, jsonify, send_from_directory
+import os, re
 import pdfplumber
 from werkzeug.utils import secure_filename
 from spellchecker import SpellChecker
@@ -7,7 +7,6 @@ from fpdf import FPDF
 from pdf2image import convert_from_path
 import pytesseract
 import language_tool_python
-
 
 app = Flask(__name__)
 
@@ -65,7 +64,7 @@ def create_pdf(texts):
         pdf.multi_cell(0, 10, text)
     
     output_path = os.path.join(app.config['UPLOAD_FOLDER'], 'corrected_text.pdf')
-    # pdf.output(output_path)
+    pdf.output(output_path)  # Save the file
     return output_path
 
 @app.route('/')
@@ -103,7 +102,7 @@ def get_page(page_number):
 
 @app.route('/pdf/<path:filename>', methods=['GET'])
 def serve_pdf(filename):
-    return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/correct', methods=['POST'])
 def correct_text():
@@ -111,13 +110,24 @@ def correct_text():
     text = data['text']
     
     # Create new PDF with corrected text
-    output_pdf_path = create_pdf([text])  # Create new PDF
-    original_pdf_path = pdf_path  # Keep track of the original PDF path
+    output_pdf_path = create_pdf([text])  # Save new PDF
+    original_pdf_path = pdf_path  # Original PDF path
     
-    return jsonify({'success': True, 'output_pdf_path': output_pdf_path, 'original_pdf_path': original_pdf_path})
+    if os.path.exists(output_pdf_path):  #Ensure file was created
+        return jsonify({
+            'success': True,
+            'output_pdf_path': f'/uploads/corrected_text.pdf',
+            'original_pdf_path': f'/uploads/{os.path.basename(original_pdf_path)}'
+        })
+    else:
+        return jsonify({'success': False, 'message': 'Failed to create corrected PDF.'})
+
+@app.route('/uploads/<path:filename>', methods=['GET'])
+def serve_uploads(filename):    
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
     
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
-        os.makedirs(UPLOAD_FOLDER)  # Create upload directory if it doesn't exist
+        os.makedirs(UPLOAD_FOLDER) 
     app.run(debug=True)

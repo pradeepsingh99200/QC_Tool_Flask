@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QC Tool</title>
+    <title>Quality Check Tool</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <style>
@@ -27,7 +27,6 @@
     </style>
 </head>
 <body>
-
 <div class="container-fluid">
     <h1 class="mt-4 mb-4 text-center">Quality Check Tool</h1>
     <form id="upload-form" class="mb-4">
@@ -39,10 +38,10 @@
         </div>
     </form>
 
-    <div id="navigation" class="text-center">
-        <button id="prev-btn" class="btn btn-secondary">Previous</button> 
+    <div id="navigation" class="text-center" style="display: none;">
+        <button id="prev-btn" class="btn btn-secondary">Previous</button>
         <button id="next-btn" class="btn btn-secondary">Next</button>
-        <!-- <button id="correct-btn" class="btn btn-success">Correct Text</button> -->
+        <button id="correct-btn" class="btn btn-success">Download Corrected PDF</button>
     </div>
 
     <div class="row">
@@ -50,7 +49,6 @@
             <canvas id="pdf-canvas" class="border" style="width: 100%; height: auto;"></canvas>
         </div>
         <div class="col-md-6" id="text-viewer">
-            <!-- <h2>Extracted Text</h2> -->
             <textarea id="extracted-text" class="form-control" rows="20" placeholder="Edit extracted text here..."></textarea>
             <div id="spelling-errors" class="mt-2"></div>
         </div>
@@ -71,38 +69,36 @@
     const prevBtn = document.getElementById('prev-btn');
     const nextBtn = document.getElementById('next-btn');
     const correctBtn = document.getElementById('correct-btn');
+    const navigationDiv = document.getElementById('navigation');
+
     let totalPages = 0;
     let currentPage = 0;
     let pdfDoc = null;
     let pdfUrl = '';
 
+    // Form submission handler
     form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+        e.preventDefault();
+        const formData = new FormData(form);
 
-    // Reset the viewer and other states for a new PDF
-    pdfDoc = null;  // Clear current PDF document
-    currentPage = 0;  // Reset to first page
-    extractedTextArea.value = '';  // Clear extracted text
-    spellingErrorsDiv.innerHTML = '';  // Clear spelling errors
-    pdfCanvas.getContext('2d').clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);  // Clear the canvas
+        const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+        });
 
-    const formData = new FormData(form);
-    const response = await fetch('/upload', {
-        method: 'POST',
-        body: formData
+        const result = await response.json();
+        if (result.success) {
+            totalPages = result.total_pages;
+            pdfUrl = `/pdf/${result.filename}`;
+            currentPage = 0;
+            navigationDiv.style.display = 'block';
+            loadPage(currentPage);
+        } else {
+            alert(result.message);
+        }
     });
 
-    const result = await response.json();
-    if (result.success) {
-        totalPages = result.total_pages;
-        pdfUrl = `/pdf/${result.filename}`;  // Set new PDF URL
-        loadPage(currentPage);  // Load first page of the new PDF
-    } else {
-        alert(result.message);  // Show error message
-    }
-});
-
-
+    // Navigation handlers
     prevBtn.addEventListener('click', () => {
         if (currentPage > 0) {
             currentPage--;
@@ -118,49 +114,51 @@
     });
 
     correctBtn.addEventListener('click', async () => {
-    const correctedText = extractedTextArea.value;
-    const response = await fetch('/correct', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ text: correctedText })
+        const correctedText = extractedTextArea.value;
+
+        const response = await fetch('/correct', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: correctedText })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            alert("Corrected PDF created successfully!");
+            window.open(result.output_pdf_path, '_blank');
+        } else {
+            alert("Failed to create corrected PDF.");
+        }
     });
-    const result = await response.json();
-    if (result.success) {
-        alert("Corrected PDF created successfully!");
 
-        // Show download links
-        const downloadLinksDiv = document.getElementById('download-links');
-        downloadLinksDiv.innerHTML = ''; // Clear previous links
-
-        // Link to the corrected PDF
-        const correctedPdfLink = document.createElement('a');
-        correctedPdfLink.href = result.output_pdf_path; 
-        correctedPdfLink.innerText = 'Download Corrected PDF';
-        downloadLinksDiv.appendChild(correctedPdfLink);
-        downloadLinksDiv.appendChild(document.createElement('br')); // Add a line break
-
-        // Link to the original PDF
-        const originalPdfLink = document.createElement('a');
-        originalPdfLink.href = result.original_pdf_path; 
-        originalPdfLink.innerText = 'Download Original PDF';
-        downloadLinksDiv.appendChild(originalPdfLink);
-    }
-});
-
-
+    // Load a specific page
     async function loadPage(pageNumber) {
         const response = await fetch(`/page/${pageNumber}`);
         const data = await response.json();
-        extractedTextArea.value = data.text;
 
-        // Display spelling errors
-        displaySpellingErrors(data.spelling_errors);
+        if (response.ok) {
+            extractedTextArea.value = data.text;
+            displaySpellingErrors(data.spelling_errors);
+            renderPdfPage(pageNumber);
+        } else {
+            alert(data.message || 'Failed to load page.');
+        }
+    }
 
-        // Load PDF page
+    // Display spelling errors
+    function displaySpellingErrors(errors) {
+        spellingErrorsDiv.innerHTML = '';
+        for (const [word, suggestions] of Object.entries(errors)) {
+            const errorDiv = document.createElement('div');
+            errorDiv.innerHTML = `<span class="error">${word}</span>: <span class="suggestions">${suggestions.join(', ')}</span>`;
+            spellingErrorsDiv.appendChild(errorDiv);
+        }
+    }
+
+    // Render PDF page to canvas
+    async function renderPdfPage(pageNumber) {
         if (!pdfDoc) {
-            pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise; // Load PDF from the URL
+            pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
         }
 
         const page = await pdfDoc.getPage(pageNumber + 1);
@@ -173,15 +171,6 @@
             viewport: viewport
         };
         await page.render(renderContext).promise;
-    }
-
-    function displaySpellingErrors(errors) {
-        spellingErrorsDiv.innerHTML = ''; // Clear previous errors
-        for (const [word, suggestions] of Object.entries(errors)) {
-            const errorDiv = document.createElement('div');
-            errorDiv.innerHTML = `<span class="error">${word}</span>: <span class="suggestions">${suggestions.join(', ')}</span>`;
-            spellingErrorsDiv.appendChild(errorDiv);
-        }
     }
 </script>
 </body>
