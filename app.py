@@ -14,15 +14,14 @@ app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Global variable to hold the PDF and extracted text
-pdf_path = ''
-extracted_text = []
-current_page = 0
+# Global state replaced with a dictionary for user sessions
+user_data = {}
 
 spell = SpellChecker()
 grammar = language_tool_python.LanguageTool('en-US')
 
 def convert_pdf_to_txt(pdf_path):
+    """Extracts text from a PDF file, using OCR as a fallback."""
     extracted_text = []
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
@@ -37,32 +36,37 @@ def convert_pdf_to_txt(pdf_path):
                     extracted_text.append(text)
     return extracted_text
 
-def check_spelling(text):
+def check_spelling_and_grammar(text):
+    """Check spelling and grammar errors in the text."""
     words = text.split()
     corrections = {}
 
     for word in words:
-        # Ignore words that are numbers, symbols, or already uppercase (proper nouns, acronyms)
+        # Ignore numbers, symbols, or proper nouns/acronyms
         if word.isdigit() or re.match(r'^\W+$', word) or word.isupper():
             continue
 
-        # Check if the word is misspelled
         misspelled = spell.unknown([word])
         if misspelled:
             suggestions = spell.candidates(word)
             if suggestions:
                 corrections[word] = list(suggestions)[:3]  # Get top 3 suggestions
-    return corrections
+
+    grammar_errors = grammar.check(text)
+    grammar_suggestions = [error.message for error in grammar_errors]
+
+    return corrections, grammar_suggestions
 
 def create_pdf(texts):
+    """Creates a PDF from a list of text pages."""
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
-    
+
     for text in texts:
         pdf.add_page()
         pdf.set_font("Arial", size=12)
         pdf.multi_cell(0, 10, text)
-    
+
     output_path = os.path.join(app.config['UPLOAD_FOLDER'], 'corrected_text.pdf')
     pdf.output(output_path)  # Save the file
     return output_path
@@ -73,7 +77,6 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    global pdf_path, extracted_text, current_page
     if 'file' not in request.files:
         return jsonify({'success': False, 'message': 'No file uploaded.'})
     file = request.files['file']
@@ -82,52 +85,57 @@ def upload_file():
     if file and file.filename.endswith('.pdf'):
         filename = secure_filename(file.filename)
         pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(pdf_path) 
+        file.save(pdf_path)
 
-        # Convert PDF to text
+        # Extract text from PDF
         extracted_text = convert_pdf_to_txt(pdf_path)
-        current_page = 0
+        session_id = str(os.urandom(16).hex())
+        user_data[session_id] = {
+            'pdf_path': pdf_path,
+            'extracted_text': extracted_text,
+            'current_page': 0
+        }
 
-        # Return success response with total pages and PDF file name
-        return jsonify({'success': True, 'total_pages': len(extracted_text), 'filename': filename})
+        return jsonify({'success': True, 'session_id': session_id, 'total_pages': len(extracted_text), 'filename': filename})
+    return jsonify({'success': False, 'message': 'Invalid file type. Only PDFs are allowed.'})
 
+@app.route('/page/<session_id>/<int:page_number>', methods=['GET'])
+def get_page(session_id, page_number):
+    if session_id not in user_data:
+        return jsonify({'success': False, 'message': 'Session not found.'})
 
-@app.route('/page/<int:page_number>', methods=['GET'])
-def get_page(page_number):
-    global current_page
-    current_page = page_number
-    text = extracted_text[page_number] if page_number < len(extracted_text) else ""
-    spelling_errors = check_spelling(text)
-    return jsonify({'page_number': page_number, 'text': text, 'spelling_errors': spelling_errors})
+    data = user_data[session_id]
+    text = data['extracted_text'][page_number] if page_number < len(data['extracted_text']) else ""
+    spelling_errors, grammar_suggestions = check_spelling_and_grammar(text)
 
-@app.route('/pdf/<path:filename>', methods=['GET'])
-def serve_pdf(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    return jsonify({'success': True, 'page_number': page_number, 'text': text, 'spelling_errors': spelling_errors, 'grammar_suggestions': grammar_suggestions})
 
-@app.route('/correct', methods=['POST'])
-def correct_text():
+@app.route('/correct/<session_id>', methods=['POST'])
+def correct_text(session_id):
+    if session_id not in user_data:
+        return jsonify({'success': False, 'message': 'Session not found.'})
+
     data = request.json
     text = data['text']
-    
-    # Create new PDF with corrected text
-    output_pdf_path = create_pdf([text])  # Save new PDF
-    original_pdf_path = pdf_path  # Original PDF path
-    
-    if os.path.exists(output_pdf_path):  #Ensure file was created
-        return jsonify({
-            'success': True,
-            'output_pdf_path': f'/uploads/corrected_text.pdf',
-            'original_pdf_path': f'/uploads/{os.path.basename(original_pdf_path)}'
-        })
-    else:
-        return jsonify({'success': False, 'message': 'Failed to create corrected PDF.'})
+
+    output_pdf_path = create_pdf([text])
+    if os.path.exists(output_pdf_path):
+        return jsonify({'success': True, 'output_pdf_path': '/uploads/corrected_text.pdf'})
+    return jsonify({'success': False, 'message': 'Failed to create corrected PDF.'})
 
 @app.route('/uploads/<path:filename>', methods=['GET'])
-def serve_uploads(filename):    
+def serve_uploads(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-    
+@app.errorhandler(404)
+def not_found_error(e):
+    return jsonify({'success': False, 'message': 'Resource not found.'}), 404
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    return jsonify({'success': False, 'message': 'An internal error occurred.'}), 500
+
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
-        os.makedirs(UPLOAD_FOLDER) 
+        os.makedirs(UPLOAD_FOLDER)
     app.run(debug=True)
