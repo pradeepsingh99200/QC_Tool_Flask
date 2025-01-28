@@ -8,6 +8,10 @@ from pdf2image import convert_from_path
 import pytesseract
 import language_tool_python
 
+import os
+os.environ['JAVA_HOME'] = '/usr/lib/jvm/java-11-openjdk-amd64'
+
+
 app = Flask(__name__)
 
 # Define upload directory
