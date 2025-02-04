@@ -4,7 +4,6 @@ import pdfplumber
 from werkzeug.utils import secure_filename
 from spellchecker import SpellChecker
 from fpdf import FPDF
-from pdf2image import convert_from_path
 import pytesseract
 import language_tool_python
 
@@ -21,19 +20,13 @@ spell = SpellChecker()
 grammar = language_tool_python.LanguageTool('en-US')
 
 def convert_pdf_to_txt(pdf_path):
-    """Extracts text from a PDF file, using OCR as a fallback."""
+    """Extracts text from a PDF file (No OCR, works on Vercel)."""
     extracted_text = []
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
             if text:
                 extracted_text.append(text)
-            else:
-                # If text extraction fails, use OCR
-                images = convert_from_path(pdf_path, first_page=pdf.pages.index(page)+1, last_page=pdf.pages.index(page)+1)
-                for img in images:
-                    text = pytesseract.image_to_string(img)
-                    extracted_text.append(text)
     return extracted_text
 
 def check_spelling_and_grammar(text):
@@ -138,4 +131,4 @@ def internal_server_error(e):
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
-        app = app
+    app = app
