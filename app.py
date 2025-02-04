@@ -11,11 +11,16 @@ import language_tool_python
 app = Flask(__name__)
 
 # Define upload directory
+
+os.environ["PATH"] += os.pathsep + "/usr/bin/"
+
 UPLOAD_FOLDER = '/tmp/uploads/'  # Change from "uploads/" to "/tmp/uploads/"
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+
+
 
 
 # Global state replaced with a dictionary for user sessions

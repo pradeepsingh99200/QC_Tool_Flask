@@ -6,3 +6,5 @@ language_tool_python
 fpdf
 spellchecker
 werkzeug
+poppler-utils
+pdf2image
