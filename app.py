@@ -15,8 +15,11 @@ os.environ['JAVA_HOME'] = '/usr/lib/jvm/java-11-openjdk-amd64'
 app = Flask(__name__)
 
 # Define upload directory
-UPLOAD_FOLDER = 'uploads/'
+UPLOAD_FOLDER = "/tmp/uploads/"  # Change from "uploads/"
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
 # Global state replaced with a dictionary for user sessions
 user_data = {}
