@@ -1,9 +1,8 @@
-Flask>=2.1.0
-Werkzeug>=2.1.0
-pdfplumber==0.11.4
-pyspellchecker==0.5.5
-fpdf==1.7.2
-gunicorn==20.1.0
+Flask
+pdfplumber
 pdf2image
 pytesseract
-language_tool_python           
+language_tool_python
+fpdf
+spellchecker
+werkzeug

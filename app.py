@@ -8,18 +8,11 @@ from pdf2image import convert_from_path
 import pytesseract
 import language_tool_python
 
-import os
-os.environ['JAVA_HOME'] = '/usr/lib/jvm/java-11-openjdk-amd64'
-
-
 app = Flask(__name__)
 
 # Define upload directory
-UPLOAD_FOLDER = "/tmp/uploads/"  # Change from "uploads/"
+UPLOAD_FOLDER = 'uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
 
 # Global state replaced with a dictionary for user sessions
 user_data = {}
@@ -142,5 +135,7 @@ def not_found_error(e):
 def internal_server_error(e):
     return jsonify({'success': False, 'message': 'An internal error occurred.'}), 500
 
-if __name__ == "__main__":
-    app.run()
+if __name__ == '__main__':
+    if not os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOAD_FOLDER)
+    app.run(debug=True)
