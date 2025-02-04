@@ -5,7 +5,7 @@ from werkzeug.utils import secure_filename
 from spellchecker import SpellChecker
 from fpdf import FPDF
 import requests
-
+import traceback
 
 app = Flask(__name__)
 
@@ -76,13 +76,20 @@ def create_pdf(texts):
 def index():
     return render_template('index.html')
 
+@app.errorhandler(Exception)
+def handle_exception(error):
+    """Handles all exceptions and logs them."""
+    tb_str = traceback.format_exception(type(error), error, error.__traceback__)
+    print("".join(tb_str))  # This will log the error to Vercel logs
+    return jsonify({'success': False, 'message': 'An internal error occurred.'}), 500
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
-        return jsonify({'success': False, 'message': 'No file uploaded.'})
+        return jsonify({'success': False, 'message': 'No file uploaded.'}), 400
     file = request.files['file']
     if file.filename == '':
-        return jsonify({'success': False, 'message': 'No file uploaded.'})
+        return jsonify({'success': False, 'message': 'No file selected.'}), 400
     if file and file.filename.endswith('.pdf'):
         filename = secure_filename(file.filename)
         pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -90,6 +97,7 @@ def upload_file():
 
         # Extract text from PDF
         extracted_text = convert_pdf_to_txt(pdf_path)
+
         session_id = str(os.urandom(16).hex())
         user_data[session_id] = {
             'pdf_path': pdf_path,
@@ -98,7 +106,9 @@ def upload_file():
         }
 
         return jsonify({'success': True, 'session_id': session_id, 'total_pages': len(extracted_text), 'filename': filename})
-    return jsonify({'success': False, 'message': 'Invalid file type. Only PDFs are allowed.'})
+
+    return jsonify({'success': False, 'message': 'Invalid file type. Only PDFs are allowed.'}), 400
+
 
 @app.route('/page/<session_id>/<int:page_number>', methods=['GET'])
 def get_page(session_id, page_number):
