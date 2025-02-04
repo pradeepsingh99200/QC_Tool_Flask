@@ -142,7 +142,5 @@ def not_found_error(e):
 def internal_server_error(e):
     return jsonify({'success': False, 'message': 'An internal error occurred.'}), 500
 
-if __name__ == '__main__':
-    if not os.path.exists(UPLOAD_FOLDER):
-        os.makedirs(UPLOAD_FOLDER)
-    app.run(debug=True)
+if __name__ == "__main__":
+    app.run()
