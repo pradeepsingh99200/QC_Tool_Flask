@@ -1,10 +1,8 @@
 Flask
 pdfplumber
-pdf2image
 pytesseract
-language_tool_python
-fpdf
 spellchecker
-werkzeug
-poppler-utils
+fpdf
 pdf2image
+language-tool-python
+werkzeug
