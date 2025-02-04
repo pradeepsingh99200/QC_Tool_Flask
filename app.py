@@ -4,7 +4,6 @@ import pdfplumber
 from werkzeug.utils import secure_filename
 from spellchecker import SpellChecker
 from fpdf import FPDF
-import pytesseract
 import language_tool_python
 
 app = Flask(__name__)
