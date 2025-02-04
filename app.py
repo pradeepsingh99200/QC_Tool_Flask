@@ -16,7 +16,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 user_data = {}
 
 spell = SpellChecker()
-grammar = language_tool_python.LanguageTool('en-US')
+grammar = language_tool_python.LanguageTool('en-US', remote=True)
 
 def convert_pdf_to_txt(pdf_path):
     """Extracts text from a PDF file (No OCR, works on Vercel)."""
