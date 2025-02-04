@@ -1,7 +1,7 @@
-Flask
-pdfplumber
-Werkzeug
-fpdf
-pdf2image
-pytesseract
-language-tool-python
+Flask 
+pdfplumber 
+Werkzeug 
+fpdf 
+pdf2image 
+pytesseract 
+language-tool-python 
