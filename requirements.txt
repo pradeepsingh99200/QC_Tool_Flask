@@ -3,3 +3,5 @@ pdfplumber
 Werkzeug
 fpdf
 language-tool-python
+pyspellchecker
+
