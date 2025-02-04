@@ -17,7 +17,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 user_data = {}
 
 spell = SpellChecker()
-grammar = language_tool_python.LanguageTool('en-US')
+# grammar = language_tool_python.LanguageTool('en-US')
 
 def convert_pdf_to_txt(pdf_path):
     """Extracts text from a PDF file (No OCR, works on Vercel)."""
@@ -29,6 +29,7 @@ def convert_pdf_to_txt(pdf_path):
                 extracted_text.append(text)
     return extracted_text
 
+# Function to check grammar via the LanguageTool API
 def check_grammar_with_api(text):
     """Uses the LanguageTool API to check grammar."""
     url = "https://api.languagetool.org/v2/check"
@@ -41,6 +42,20 @@ def check_grammar_with_api(text):
         return response.json()
     else:
         return {"error": "Failed to check grammar"}
+
+def check_spelling_and_grammar(text):
+    """Check spelling and grammar using LanguageTool API."""
+    spelling_errors = {}  # Your current spell checker logic
+    grammar_suggestions = []
+
+    # Check grammar with API
+    grammar_response = check_grammar_with_api(text)
+    if "error" not in grammar_response:
+        for match in grammar_response.get("matches", []):
+            grammar_suggestions.append(match["message"])
+
+    return spelling_errors, grammar_suggestions
+
 
 
 def create_pdf(texts):
