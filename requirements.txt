@@ -2,5 +2,5 @@ Flask
 pdfplumber
 Werkzeug
 fpdf
-language-tool-python
+requests
 pyspellchecker

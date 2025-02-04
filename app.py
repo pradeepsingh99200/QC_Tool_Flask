@@ -4,7 +4,8 @@ import pdfplumber
 from werkzeug.utils import secure_filename
 from spellchecker import SpellChecker
 from fpdf import FPDF
-import language_tool_python
+import requests
+
 
 app = Flask(__name__)
 
@@ -28,26 +29,19 @@ def convert_pdf_to_txt(pdf_path):
                 extracted_text.append(text)
     return extracted_text
 
-def check_spelling_and_grammar(text):
-    """Check spelling and grammar errors in the text."""
-    words = text.split()
-    corrections = {}
+def check_grammar_with_api(text):
+    """Uses the LanguageTool API to check grammar."""
+    url = "https://api.languagetool.org/v2/check"
+    params = {
+        "text": text,
+        "language": "en-US",
+    }
+    response = requests.post(url, data=params)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return {"error": "Failed to check grammar"}
 
-    for word in words:
-        # Ignore numbers, symbols, or proper nouns/acronyms
-        if word.isdigit() or re.match(r'^\W+$', word) or word.isupper():
-            continue
-
-        misspelled = spell.unknown([word])
-        if misspelled:
-            suggestions = spell.candidates(word)
-            if suggestions:
-                corrections[word] = list(suggestions)[:3]  # Get top 3 suggestions
-
-    grammar_errors = grammar.check(text)
-    grammar_suggestions = [error.message for error in grammar_errors]
-
-    return corrections, grammar_suggestions
 
 def create_pdf(texts):
     """Creates a PDF from a list of text pages."""
