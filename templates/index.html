@@ -1,242 +1,200 @@
+<!-- ✅ Phase 1+2+3+Annotations: index.html with inline correction + comment UI -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quality Check Tool</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            background-color: #f8f9fa;
-        }
-        #pdf-viewer {
-            border-right: 1px solid #dee2e6;
-        }
-        #navigation {
-            margin-bottom: 1rem;
-        }
-        .error {
-            color: red;
-            font-weight: bold;
-        }
-        .suggestions {
-            color: blue;
-            font-style: italic;
-        }
-        #loading {
-            display: none;
-            text-align: center;
-        }
-        @media (max-width: 768px) {
-            #pdf-viewer, #text-viewer {
-                width: 100%;
-            }
-        }
-        #error-message {
-            display: none;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quality Check Tool</title>
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #f8f9fa; }
+    #pdf-viewer { border-right: 1px solid #dee2e6; }
+    .error-highlight {
+      background-color: #ffe6e6;
+      color: red;
+      border-bottom: 1px dotted red;
+      cursor: pointer;
+    }
+    .suggestion-box {
+      position: absolute;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      padding: 5px;
+      z-index: 9999;
+      display: none;
+    }
+    #editable-text {
+      border: 1px solid #ccc;
+      padding: 10px;
+      min-height: 300px;
+      overflow-y: auto;
+    }
+  </style>
 </head>
 <body>
 <div class="container-fluid">
-    <h1 class="mt-4 mb-4 text-center">Quality Check Tool</h1>
-    
-    <!-- Error message display -->
-    <div id="error-message" class="alert alert-danger"></div>
+  <h1 class="mt-4 mb-4 text-center">Quality Check Tool</h1>
 
-    <!-- File Upload Form -->
-    <form id="upload-form" class="mb-4">
-        <div class="input-group">
-            <input type="file" name="file" accept="application/pdf" class="form-control" required>
-            <div class="input-group-append">
-                <input type="submit" value="Upload" class="btn btn-primary">
-            </div>
-        </div>
-    </form>
-
-    <!-- Loading Spinner -->
-    <div id="loading" class="mb-3">
-        <div class="spinner-border text-primary" role="status">
-            <span class="sr-only">Loading...</span>
-        </div>
+  <form id="upload-form" class="mb-4">
+    <div class="input-group">
+      <input type="file" name="file" accept="application/pdf" class="form-control" required>
+      <div class="input-group-append">
+        <input type="submit" value="Upload" class="btn btn-primary">
+      </div>
     </div>
+  </form>
 
-    <!-- Navigation Buttons -->
-    <div id="navigation" class="text-center" style="display: none;">
-        <button id="prev-btn" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Previous</button>
-        <button id="next-btn" class="btn btn-secondary">Next <i class="fas fa-arrow-right"></i></button>
-        <!-- <button id="correct-btn" class="btn btn-success"><i class="fas fa-file-download"></i> Download Corrected PDF</button> -->
+  <div id="navigation" class="text-center" style="display: none;">
+    <button id="prev-btn" class="btn btn-secondary">Previous</button>
+    <button id="next-btn" class="btn btn-secondary">Next</button>
+    <button id="correct-btn" class="btn btn-success">Download Corrected PDF</button>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6" id="pdf-viewer">
+      <canvas id="pdf-canvas" class="border" style="width: 100%; height: auto;"></canvas>
     </div>
-
-    <div class="row">
-        <!-- PDF Viewer -->
-        <div class="col-md-6" id="pdf-viewer">
-            <canvas id="pdf-canvas" class="border" style="width: 100%; height: auto;"></canvas>
-        </div>
-
-        <!-- Text Viewer and Editing -->
-        <div class="col-md-6" id="text-viewer">
-            <textarea id="extracted-text" class="form-control" rows="20" placeholder="Edit extracted text here..."></textarea>
-            <div id="spelling-errors" class="mt-2"></div>
-        </div>
+    <div class="col-md-6">
+      <div id="editable-text" contenteditable="true"></div>
+      <div id="suggestion-box" class="suggestion-box"></div>
+      <div class="mt-3">
+        <input type="text" id="comment-input" class="form-control" placeholder="Type your comment here...">
+        <button id="add-comment-btn" class="btn btn-warning mt-2">Add Comment</button>
+      </div>
     </div>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"></script>
-<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-
 <script>
-    const form = document.getElementById('upload-form');
-    const pdfCanvas = document.getElementById('pdf-canvas');
-    const extractedTextArea = document.getElementById('extracted-text');
-    const spellingErrorsDiv = document.getElementById('spelling-errors');
-    const prevBtn = document.getElementById('prev-btn');
-    const nextBtn = document.getElementById('next-btn');
-    const correctBtn = document.getElementById('correct-btn');
-    const navigationDiv = document.getElementById('navigation');
-    const loadingDiv = document.getElementById('loading');
-    const errorMessageDiv = document.getElementById('error-message');
+let sessionId = '', currentPage = 0, totalPages = 0, pdfUrl = '', pdfDoc = null;
+const editableText = document.getElementById('editable-text');
+const suggestionBox = document.getElementById('suggestion-box');
 
-    let totalPages = 0;
-    let currentPage = 0;
-    let pdfDoc = null;
-    let pdfUrl = '';
-    let sessionId = '';
+function wrapErrors(text, spellingErrors) {
+  Object.keys(spellingErrors).forEach(word => {
+    const regex = new RegExp(`\\b${word}\\b`, 'gi');
+    text = text.replace(regex, `<span class="error-highlight" data-suggestions="${spellingErrors[word].join(',')}">$&</span>`);
+  });
+  return text;
+}
 
-    function toggleLoading(show) {
-        loadingDiv.style.display = show ? 'block' : 'none';
-    }
+function loadPage(pageNumber) {
+  fetch(`/page/${sessionId}/${pageNumber}`).then(res => res.json()).then(data => {
+    let htmlText = wrapErrors(data.text, data.spelling_errors);
+    editableText.innerHTML = htmlText;
+    renderPdfPage(pageNumber);
+  });
+}
 
-    function showError(message) {
-        errorMessageDiv.style.display = 'block';
-        errorMessageDiv.innerText = message;
-    }
-
-    async function fetchData(url, options = {}) {
-        try {
-            toggleLoading(true);
-            const response = await fetch(url, options);
-            toggleLoading(false);
-            return response.json();
-        } catch (error) {
-            toggleLoading(false);
-            showError('An error occurred. Please try again.');
-        }
-    }
-
-    // Form submission handler
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(form);
-
-        const result = await fetchData('/upload', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (result.success) {
-            totalPages = result.total_pages;
-            pdfUrl = `/uploads/${result.filename}`;
-            sessionId = result.session_id;  // Store session ID
-            currentPage = 0;
-            navigationDiv.style.display = 'block';
-            loadPage(currentPage);
-        } else {
-            showError(result.message);
-        }
+function renderPdfPage(pageNumber) {
+  if (!pdfDoc) {
+    pdfjsLib.getDocument(pdfUrl).promise.then(doc => {
+      pdfDoc = doc;
+      renderPdfPage(pageNumber);
     });
+    return;
+  }
+  pdfDoc.getPage(pageNumber + 1).then(page => {
+    const scale = 1.5;
+    const viewport = page.getViewport({ scale });
+    const canvas = document.getElementById('pdf-canvas');
+    const context = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    page.render({ canvasContext: context, viewport });
+  });
+}
 
-    // Navigation handlers
-    prevBtn.addEventListener('click', () => {
-        if (currentPage > 0) {
-            currentPage--;
-            loadPage(currentPage);
-        }
+document.getElementById('upload-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const res = await fetch('/upload', { method: 'POST', body: formData });
+  const data = await res.json();
+  if (data.success) {
+    sessionId = data.session_id;
+    totalPages = data.total_pages;
+    pdfUrl = `/uploads/${data.filename}`;
+    currentPage = 0;
+    loadPage(currentPage);
+    document.getElementById('navigation').style.display = 'block';
+  }
+});
+
+document.getElementById('prev-btn').onclick = () => {
+  if (currentPage > 0) {
+    currentPage--;
+    loadPage(currentPage);
+  }
+};
+
+document.getElementById('next-btn').onclick = () => {
+  if (currentPage < totalPages - 1) {
+    currentPage++;
+    loadPage(currentPage);
+  }
+};
+
+document.getElementById('correct-btn').onclick = async () => {
+  const plainText = editableText.innerText;
+  const res = await fetch(`/correct/${sessionId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: plainText })
+  });
+  const result = await res.json();
+  if (result.success) window.open(result.output_pdf_path);
+};
+
+document.getElementById('add-comment-btn').addEventListener('click', async () => {
+  const selectedText = window.getSelection().toString().trim();
+  const comment = document.getElementById('comment-input').value.trim();
+
+  if (!selectedText) return alert("Please select some text in the editor to comment on.");
+  if (!comment) return alert("Please write a comment.");
+
+  const response = await fetch(`/comment/${sessionId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      page: currentPage,
+      text: selectedText,
+      comment: comment
+    })
+  });
+
+  const result = await response.json();
+  if (result.success) {
+    alert("✅ Comment added successfully!");
+    window.open(result.output_pdf_path, "_blank");
+  } else {
+    alert("❌ Failed to add comment.");
+  }
+});
+
+editableText.addEventListener('click', (e) => {
+  if (e.target.classList.contains('error-highlight')) {
+    const suggestions = e.target.dataset.suggestions.split(',');
+    suggestionBox.innerHTML = '';
+    suggestions.forEach(s => {
+      const option = document.createElement('div');
+      option.className = 'dropdown-item';
+      option.textContent = s;
+      option.onclick = () => {
+        e.target.outerHTML = s;
+        suggestionBox.style.display = 'none';
+      };
+      suggestionBox.appendChild(option);
     });
-
-    nextBtn.addEventListener('click', () => {
-        if (currentPage < totalPages - 1) {
-            currentPage++;
-            loadPage(currentPage);
-        }
-    });
-
-    correctBtn.addEventListener('click', async () => {
-        const correctedText = extractedTextArea.value;
-
-        const result = await fetchData('/correct', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: correctedText })
-        });
-
-        if (result.success) {
-            alert("Corrected PDF created successfully!");
-            window.open(result.output_pdf_path, '_blank');
-        } else {
-            showError("Failed to create corrected PDF.");
-        }
-    });
-
-    // Load a specific page
-    async function loadPage(pageNumber) {
-        try {
-            const response = await fetch(`/page/${sessionId}/${pageNumber}`);
-            const data = await response.json();
-
-            if (response.ok) {
-                extractedTextArea.value = data.text; // Update the text area with page content
-                displaySpellingErrors(data.spelling_errors); // Show spelling errors
-                await renderPdfPage(pageNumber); // Render the PDF page
-            } else {
-                showError(data.message || 'Failed to load page.');
-            }
-        } catch (error) {
-            showError('An error occurred while loading the page.');
-        }
-    }
-
-    // Render PDF page
-    async function renderPdfPage(pageNumber) {
-        try {
-            if (!pdfDoc) {
-                pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
-            }
-
-            const page = await pdfDoc.getPage(pageNumber + 1); // Fetch page (1-based index)
-            const scale = window.innerWidth < 768 ? 1.0 : 1.5; // Dynamic scale based on screen size
-            const viewport = page.getViewport({ scale: scale });
-
-            pdfCanvas.height = viewport.height;
-            pdfCanvas.width = viewport.width;
-
-            const renderContext = {
-                canvasContext: pdfCanvas.getContext('2d'),
-                viewport: viewport
-            };
-
-            await page.render(renderContext).promise; // Render the page
-        } catch (error) {
-            showError('An error occurred while rendering the PDF.');
-        }
-    }
-
-    // Display spelling errors
-    function displaySpellingErrors(errors) {
-        spellingErrorsDiv.innerHTML = '';
-        if (errors && errors.length) {
-            errors.forEach(error => {
-                const errorDiv = document.createElement('div');
-                errorDiv.classList.add('error');
-                errorDiv.textContent = `Spelling mistake: ${error.word}. Suggestions: ${error.suggestions.join(', ')}`;
-                spellingErrorsDiv.appendChild(errorDiv);
-            });
-        }
-    }
+    const rect = e.target.getBoundingClientRect();
+    suggestionBox.style.top = `${rect.bottom + window.scrollY}px`;
+    suggestionBox.style.left = `${rect.left + window.scrollX}px`;
+    suggestionBox.style.display = 'block';
+  } else {
+    suggestionBox.style.display = 'none';
+  }
+});
 </script>
 </body>
 </html>
