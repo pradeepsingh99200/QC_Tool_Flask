@@ -1,6 +1,8 @@
 Flask
 pdfplumber
-Werkzeug
-fpdf
-requests
+PyMuPDF
+pdf2image
+pytesseract
+language-tool-python
 pyspellchecker
+werkzeug
