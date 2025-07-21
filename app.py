@@ -15,15 +15,31 @@ user_data = {}
 spell = SpellChecker()
 grammar = language_tool_python.LanguageTool('en-US')
 
+# def convert_pdf_to_txt(pdf_path):
+#     extracted_text = []
+#     with pdfplumber.open(pdf_path) as pdf:
+#         for page in pdf.pages:
+#             text = page.extract_text()
+#             if text:
+#                 extracted_text.append(text)
+#             else:
+#                 images = convert_from_path(pdf_path, first_page=pdf.pages.index(page)+1, last_page=pdf.pages.index(page)+1)
+#                 for img in images:
+#                     text = pytesseract.image_to_string(img)
+#                     extracted_text.append(text)
+#     return extracted_text
+
+
 def convert_pdf_to_txt(pdf_path):
     extracted_text = []
     with pdfplumber.open(pdf_path) as pdf:
-        for page in pdf.pages:
+        for page_num, page in enumerate(pdf.pages):
             text = page.extract_text()
             if text:
                 extracted_text.append(text)
             else:
-                images = convert_from_path(pdf_path, first_page=pdf.pages.index(page)+1, last_page=pdf.pages.index(page)+1)
+                # OCR fallback
+                images = convert_from_path(pdf_path, first_page=page_num+1, last_page=page_num+1)
                 for img in images:
                     text = pytesseract.image_to_string(img)
                     extracted_text.append(text)
@@ -112,28 +128,63 @@ def add_comments_to_pdf(pdf_path, comments):
 def index():
     return render_template('index.html')
 
+# @app.route('/upload', methods=['POST'])
+# def upload_file():
+#     if 'file' not in request.files:
+#         return jsonify({'success': False, 'message': 'No file uploaded.'})
+#     file = request.files['file']
+#     if file.filename == '':
+#         return jsonify({'success': False, 'message': 'No file uploaded.'})
+#     if file and file.filename.endswith('.pdf'):
+#         filename = secure_filename(file.filename)
+#         pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+#         file.save(pdf_path)
+
+#         extracted_text = convert_pdf_to_txt(pdf_path)
+#         session_id = str(os.urandom(16).hex())
+#         user_data[session_id] = {
+#             'pdf_path': pdf_path,
+#             'extracted_text': extracted_text,
+#             'edited_texts': extracted_text.copy(),
+#             'comments': []
+#         }
+#         return jsonify({'success': True, 'session_id': session_id, 'total_pages': len(extracted_text), 'filename': filename})
+#     return jsonify({'success': False, 'message': 'Invalid file type. Only PDFs are allowed.'})
+
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
         return jsonify({'success': False, 'message': 'No file uploaded.'})
+    
     file = request.files['file']
     if file.filename == '':
-        return jsonify({'success': False, 'message': 'No file uploaded.'})
-    if file and file.filename.endswith('.pdf'):
+        return jsonify({'success': False, 'message': 'No file selected.'})
+    
+    if file and file.filename.lower().endswith('.pdf'):
         filename = secure_filename(file.filename)
         pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(pdf_path)
 
         extracted_text = convert_pdf_to_txt(pdf_path)
-        session_id = str(os.urandom(16).hex())
+        session_id = os.urandom(16).hex()
+
         user_data[session_id] = {
             'pdf_path': pdf_path,
             'extracted_text': extracted_text,
             'edited_texts': extracted_text.copy(),
             'comments': []
         }
-        return jsonify({'success': True, 'session_id': session_id, 'total_pages': len(extracted_text), 'filename': filename})
-    return jsonify({'success': False, 'message': 'Invalid file type. Only PDFs are allowed.'})
+
+        return jsonify({
+            'success': True,
+            'session_id': session_id,
+            'total_pages': len(extracted_text),
+            'filename': filename,
+            'extracted_text': extracted_text  # Optional: include text for instant view
+        })
+
+    return jsonify({'success': False, 'message': 'Invalid file type. Only PDFs allowed.'})
 
 @app.route('/page/<session_id>/<int:page_number>', methods=['GET'])
 def get_page(session_id, page_number):
@@ -163,6 +214,7 @@ def correct_text(session_id):
         return jsonify({'success': True, 'output_pdf_path': '/uploads/corrected_text.pdf'})
     return jsonify({'success': False, 'message': 'Failed to create corrected PDF.'})
 
+
 @app.route('/comment/<session_id>', methods=['POST'])
 def add_comment(session_id):
     if session_id not in user_data:
@@ -190,4 +242,4 @@ def internal_server_error(e):
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
-    app.run(debug=True)
+app.run(host='0.0.0.0', port=5000, debug=True)
