@@ -1,8 +1,9 @@
 Flask
 pdfplumber
 PyMuPDF
-pdf2image
 pytesseract
+pdf2image
 language-tool-python
 pyspellchecker
 werkzeug
+gunicorn

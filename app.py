@@ -181,7 +181,7 @@ def upload_file():
             'session_id': session_id,
             'total_pages': len(extracted_text),
             'filename': filename,
-            'extracted_text': extracted_text  # Optional: include text for instant view
+            'extracted_text': extracted_text  
         })
 
     return jsonify({'success': False, 'message': 'Invalid file type. Only PDFs allowed.'})
@@ -242,4 +242,6 @@ def internal_server_error(e):
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
-app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run()
+
+# app.run(host='0.0.0.0', port=5000, debug=True)
