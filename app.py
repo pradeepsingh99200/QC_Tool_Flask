@@ -6,10 +6,17 @@ from spellchecker import SpellChecker
 from pdf2image import convert_from_path
 import pytesseract
 import language_tool_python
-import fitz 
+import fitz , os
+
 app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads/'
+
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+
 
 user_data = {}
 spell = SpellChecker()
@@ -166,7 +173,10 @@ def upload_file():
     if file and file.filename.lower().endswith('.pdf'):
         filename = secure_filename(file.filename)
         pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        # file.save(pdf_path)
+        pdf_path = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(pdf_path)
+
 
         extracted_text = convert_pdf_to_txt(pdf_path)
         session_id = os.urandom(16).hex()
