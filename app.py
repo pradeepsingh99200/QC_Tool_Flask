@@ -13,7 +13,9 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 user_data = {}
 spell = SpellChecker()
-grammar = language_tool_python.LanguageTool('en-US')
+# grammar = language_tool_python.LanguageTool('en-US')
+grammar = language_tool_python.LanguageToolPublicAPI('en-US')
+
 
 # def convert_pdf_to_txt(pdf_path):
 #     extracted_text = []
